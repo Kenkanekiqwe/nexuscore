@@ -6,15 +6,14 @@
 #include <random>
 #include <string>
 #include <vector>
+#ifdef _WIN32
+#include <windows.h>
+#include <psapi.h>
+#endif
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
-#ifdef _WIN32
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#include <psapi.h>
-#endif
 
 namespace {
 using Clock = std::chrono::steady_clock;
@@ -160,3 +159,11 @@ int main() {
     }
     ImGui_ImplOpenGL3_Shutdown();ImGui_ImplGlfw_Shutdown();ImGui::DestroyContext();glfwDestroyWindow(window);glfwTerminate();return 0;
 }
+
+#ifdef _WIN32
+// CMake builds this as a Windows GUI subsystem executable (no console window).
+// Bridge the Windows entry point to the existing cross-platform application entry.
+int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
+    return main();
+}
+#endif
