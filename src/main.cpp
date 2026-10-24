@@ -3,6 +3,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <random>
 #include <string>
 #include <vector>
@@ -246,7 +247,7 @@ void drawNetwork(State& s) {
     for(int i=0;i<209;++i) {
         ImVec2 p{o.x+nodes[i].x*z.x,o.y+nodes[i].y*z.y};
         d->AddCircleFilled(p,2.8f,IM_COL32(30,133,192,245));
-        if(i%7==0) d->AddText({p.x+3,p.y-5},IM_COL32(220,225,230,200),"%03d.%03d.%03d.%03d",(i*17+11)%255,(i*29+43)%255,(i*13+7)%255,(i*31+19)%255);
+        if(i%7==0) { char label[32]; std::snprintf(label,sizeof(label),"%03d.%03d.%03d.%03d",(i*17+11)%255,(i*29+43)%255,(i*13+7)%255,(i*31+19)%255); d->AddText({p.x+3,p.y-5},IM_COL32(220,225,230,200),label); }
     }
     for(int h=0;h<9;++h) {
         ImVec2 p{o.x+hubPos[h].x*z.x,o.y+hubPos[h].y*z.y};
