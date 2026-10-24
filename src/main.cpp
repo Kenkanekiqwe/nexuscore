@@ -178,7 +178,7 @@ void drawRenderer(State& s) {
         }
     }
     // A deterministic 3D cloud, projected with perspective. The orbit and depth changes are animated.
-    const int count=std::clamp(s.particleCount,100,20000);
+    const int count=s.rendererStars?std::clamp(s.particleCount,100,20000):0;
     for(int i=0;i<count;++i) {
         float fi=float(i);
         float u=std::fmod(std::sin(fi*127.1f+311.7f)*43758.5453f+1.0f,1.0f); if(u<0)u+=1;
@@ -206,7 +206,7 @@ void drawRenderer(State& s) {
         d->AddCircleFilled({px,py},r,IM_COL32(255,int(174+70*core),int(91+80*core),alpha));
     }
     // Brighter foreground star clusters, with spherical wireframe hints.
-    for(int k=0;k<7;++k) {
+    if(s.rendererStars) for(int k=0;k<7;++k) {
         float ang=t*.08f+k*2.39996f, rad=.22f+float(k%4)*.12f;
         float px=cx+std::cos(ang)*z.x*(.08f+rad*.35f);
         float py=cy+std::sin(ang*1.3f)*z.y*(.12f+rad*.35f);
@@ -274,8 +274,8 @@ void drawNetwork(State& s) {
     const float t=float(ImGui::GetTime());
     auto pos=[&](int i) {
         const Node& n=nodes[static_cast<std::size_t>(i)];
-        float x=n.x+std::sin(t*n.speed+n.phase)*.012f;
-        float y=n.y+std::cos(t*n.speed*.83f+n.phase*1.31f)*.014f;
+        float x=n.x+(s.networkPhysics?std::sin(t*n.speed+n.phase)*.012f:0.0f);
+        float y=n.y+(s.networkPhysics?std::cos(t*n.speed*.83f+n.phase*1.31f)*.014f:0.0f);
         return ImVec2{o.x+z.x*(.5f+(x-.5f)*s.networkZoom+s.networkPanX),
                       o.y+z.y*(.5f+(y-.5f)*s.networkZoom+s.networkPanY)};
     };
