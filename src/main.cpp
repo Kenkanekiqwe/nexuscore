@@ -27,6 +27,9 @@ struct State {
     std::vector<Packet> packets;
     int particleCount = 2400;
     float gravity = 18.0f, force = 160.0f, rotation = 0.0f, particleSize = 1.5f;
+    float networkZoom = 1.0f, networkPanX = 0.0f, networkPanY = 0.0f;
+    float cameraZoom = 1.0f, cameraYaw = 0.0f, cameraPitch = 0.12f;
+    bool networkPhysics = true, networkLabels = true, rendererStars = true, rendererGlow = true;
     bool paused = false, grid = true, trails = false, autoRotate = true, demoTraffic = true;
     double frameMs = 0.0, packetRate = 0.0, bytesTotal = 0.0;
     std::uint64_t packetTotal = 0, frameTotal = 0;
@@ -151,36 +154,70 @@ void drawParticles(State& s) {
     d->AddRect(o,{o.x+w,o.y+h},IM_COL32(54,43,29,170),5);
 }
 void drawRenderer(State& s) {
-    ImGui::TextColored(C_MUTED,"VOID ENGINE  /  SCENE PREVIEW");
-    ImGui::SameLine(); ImGui::TextColored(C_TEAL,"PROCEDURAL");
+    ImGui::TextColored(C_MUTED,"VOID ENGINE  /  3D STELLAR FIELD");
+    ImGui::SameLine(); ImGui::TextColored(C_AMBER,"PERSPECTIVE PARTICLE VOLUME");
     ImGui::Separator();
     ImVec2 a=ImGui::GetContentRegionAvail(), canvas(std::max(1.0f,a.x),std::max(180.0f,a.y));
-    ImGui::InvisibleButton("renderer-canvas",canvas);
+    ImGui::InvisibleButton("renderer-canvas",canvas,ImGuiButtonFlags_MouseButtonLeft|ImGuiButtonFlags_MouseButtonRight);
     ImVec2 o=ImGui::GetItemRectMin(), z=ImGui::GetItemRectSize(); auto*d=ImGui::GetWindowDrawList();
-    d->AddRectFilled(o,{o.x+z.x,o.y+z.y},IM_COL32(7,11,19,255),7);
-    const float cx=o.x+z.x*.5f, cy=o.y+z.y*.52f;
+    ImGuiIO& io=ImGui::GetIO();
+    if(ImGui::IsItemHovered()) {
+        if(io.MouseWheel!=0) s.cameraZoom=std::clamp(s.cameraZoom+io.MouseWheel*.12f,.35f,3.5f);
+        if(ImGui::IsMouseDragging(ImGuiMouseButton_Left)) { s.cameraYaw+=io.MouseDelta.x*.006f; s.cameraPitch=std::clamp(s.cameraPitch+io.MouseDelta.y*.005f,-1.2f,1.2f); }
+    }
+    d->AddRectFilled(o,{o.x+z.x,o.y+z.y},IM_COL32(1,2,4,255),5);
+    const float t=float(ImGui::GetTime()), cx=o.x+z.x*.5f, cy=o.y+z.y*.51f;
     if(s.grid) {
-        for(int i=-10;i<=10;++i) {
-            float x=cx+i*z.x/22;
-            d->AddLine({x,o.y+z.y*.20f},{cx+i*z.x/9,o.y+z.y},IM_COL32(34,65,83,100));
+        for(int i=-12;i<=12;++i) {
+            float xx=cx+i*z.x/24.0f;
+            d->AddLine({xx,o.y+z.y*.12f},{cx+i*z.x*.72f,o.y+z.y},IM_COL32(83,65,42,42));
         }
-        for(int i=0;i<8;++i) {
-            float t=float(i+1)/8; d->AddLine({o.x+z.x*(.08f+t*.15f),o.y+z.y*(.55f+t*.45f)},
-              {o.x+z.x*(.92f-t*.15f),o.y+z.y*(.55f+t*.45f)},IM_COL32(34,65,83,70));
+        for(int i=1;i<14;++i) {
+            float v=float(i)/14.0f, yy=o.y+z.y*(.43f+v*v*.58f);
+            d->AddLine({o.x,yy},{o.x+z.x,yy},IM_COL32(83,65,42,int(10+v*30)));
         }
     }
-    const std::array<std::array<float,3>,8> v{{{{-1,-1,-1}},{{1,-1,-1}},{{1,1,-1}},{{-1,1,-1}},{{-1,-1,1}},{{1,-1,1}},{{1,1,1}},{{-1,1,1}}}};
-    const float c=std::cos(s.rotation), sn=std::sin(s.rotation); std::array<ImVec2,8> q{};
-    for(std::size_t i=0;i<v.size();++i) {
-        float x=v[i][0]*c-v[i][2]*sn, zv=v[i][0]*sn+v[i][2]*c+4, y=v[i][1];
-        float scale=std::min(z.x,z.y)*.32f/std::max(.7f,zv); q[i]={cx+x*scale*2,cy-y*scale*2};
+    // A deterministic 3D cloud, projected with perspective. The orbit and depth changes are animated.
+    const int count=std::clamp(s.particleCount,100,20000);
+    for(int i=0;i<count;++i) {
+        float fi=float(i);
+        float u=std::fmod(std::sin(fi*127.1f+311.7f)*43758.5453f+1.0f,1.0f); if(u<0)u+=1;
+        float v=std::fmod(std::sin(fi*269.5f+183.3f)*22578.1459f+1.0f,1.0f); if(v<0)v+=1;
+        float w=std::fmod(std::sin(fi*73.7f+91.9f)*13579.246f+1.0f,1.0f); if(w<0)w+=1;
+        float radius=std::pow(u,.72f)*2.7f;
+        float ang=v*6.2831853f + t*(.035f+u*.045f);
+        float x=std::cos(ang)*radius + .22f*std::sin(w*16.0f+t*.18f);
+        float y=(w-.5f)*3.6f + .22f*std::sin(ang*2.0f+t*.12f);
+        float zz=std::sin(ang)*radius + (u-.5f)*1.8f;
+        float yaw=s.cameraYaw+(s.autoRotate?t*.055f:0.0f), cyaw=std::cos(yaw), syaw=std::sin(yaw);
+        float rx=x*cyaw-zz*syaw, rz=x*syaw+zz*cyaw+5.0f;
+        float cp=std::cos(s.cameraPitch), sp=std::sin(s.cameraPitch);
+        float ry=y*cp-rz*sp, depth=y*sp+rz*cp;
+        if(depth<.35f) continue;
+        float focal=std::min(z.x,z.y)*.72f*s.cameraZoom;
+        float px=cx+rx/depth*focal, py=cy-ry/depth*focal;
+        if(px<o.x+2||px>o.x+z.x-2||py<o.y+2||py>o.y+z.y-2) continue;
+        float core=std::exp(-(rx*rx+ry*ry)*.23f);
+        float twinkle=.55f+.45f*std::sin(t*(1.0f+u*4.0f)+fi*.71f);
+        int alpha=std::clamp(int((45+core*170)*twinkle*(1.1f/depth)),20,255);
+        float r=std::clamp((.35f+core*1.25f)*s.cameraZoom*(2.8f/depth),.35f,3.6f);
+        if(s.rendererGlow && r>1.1f) d->AddCircleFilled({px,py},r*4.2f,IM_COL32(255,170,73,18));
+        if(s.rendererGlow && r>1.6f) d->AddCircleFilled({px,py},r*2.0f,IM_COL32(255,197,111,32));
+        d->AddCircleFilled({px,py},r,IM_COL32(255,int(174+70*core),int(91+80*core),alpha));
     }
-    constexpr std::array<std::array<int,2>,12> e{{{{0,1}},{{1,2}},{{2,3}},{{3,0}},{{4,5}},{{5,6}},{{6,7}},{{7,4}},{{0,4}},{{1,5}},{{2,6}},{{3,7}}}};
-    for(auto edge:e) d->AddLine(q[static_cast<std::size_t>(edge[0])],q[static_cast<std::size_t>(edge[1])],IM_COL32(73,222,231,235),1.8f);
-    d->AddCircle({cx,cy},std::min(z.x,z.y)*.23f,IM_COL32(52,135,161,55),64,1);
-    d->AddText({o.x+15,o.y+13},IM_COL32(145,169,190,220),"VIEWPORT 01  /  WIREFRAME");
-    d->AddText({o.x+15,o.y+z.y-25},IM_COL32(110,140,160,210),"OPENGL CONTEXT ACTIVE  /  MVP GEOMETRY");
-    d->AddRect(o,{o.x+z.x,o.y+z.y},IM_COL32(40,61,80,220),7);
+    // Brighter foreground star clusters, with spherical wireframe hints.
+    for(int k=0;k<7;++k) {
+        float ang=t*.08f+k*2.39996f, rad=.22f+float(k%4)*.12f;
+        float px=cx+std::cos(ang)*z.x*(.08f+rad*.35f);
+        float py=cy+std::sin(ang*1.3f)*z.y*(.12f+rad*.35f);
+        float pulse=1.0f+.22f*std::sin(t*1.8f+k);
+        if(s.rendererGlow) d->AddCircleFilled({px,py},9*pulse,IM_COL32(255,190,104,22));
+        d->AddCircleFilled({px,py},2.1f*pulse,IM_COL32(255,238,194,250));
+        d->AddCircle({px,py},5.0f*pulse,IM_COL32(255,220,160,105),18,1.0f);
+    }
+    d->AddText({o.x+14,o.y+12},IM_COL32(195,157,104,220),"VOID / 3D DEPTH FIELD");
+    d->AddText({o.x+14,o.y+z.y-24},IM_COL32(151,127,94,220),"DRAG: ORBIT CAMERA   WHEEL: ZOOM   |   GPU-STYLE CPU PREVIEW");
+    d->AddRect(o,{o.x+z.x,o.y+z.y},IM_COL32(65,48,28,190),5);
 }
 void synthesize(State& s) {
     auto now=Clock::now(); double elapsed=std::chrono::duration<double>(now-s.lastPacket).count();
@@ -204,61 +241,92 @@ double memoryMb() {
 }
 void drawNetwork(State& s) {
     ImGui::TextColored(C_MUTED,"NETWORK VISUALIZATION");
-    ImGui::SameLine(); ImGui::TextColored(C_AMBER,"209 NODES / SYNTHETIC GRAPH");
+    ImGui::SameLine(); ImGui::TextColored(C_AMBER,"209 NODES / 627 CONNECTIONS");
+    ImGui::SameLine(); ImGui::TextColored(C_MUTED,"drag: pan  |  wheel: zoom");
     ImGui::Separator();
     ImVec2 a=ImGui::GetContentRegionAvail(), canvas(std::max(1.0f,a.x),std::max(180.0f,a.y));
-    ImGui::InvisibleButton("network-canvas",canvas,ImGuiButtonFlags_MouseButtonLeft);
+    ImGui::InvisibleButton("network-canvas",canvas,ImGuiButtonFlags_MouseButtonLeft|ImGuiButtonFlags_MouseButtonRight|ImGuiButtonFlags_MouseButtonMiddle);
     ImVec2 o=ImGui::GetItemRectMin(), z=ImGui::GetItemRectSize(); auto*d=ImGui::GetWindowDrawList();
+    ImGuiIO& io=ImGui::GetIO();
+    if(ImGui::IsItemHovered()) {
+        if(io.MouseWheel!=0) s.networkZoom=std::clamp(s.networkZoom*std::pow(1.12f,io.MouseWheel),.28f,4.5f);
+        if(ImGui::IsMouseDragging(ImGuiMouseButton_Left)||ImGui::IsMouseDragging(ImGuiMouseButton_Middle)||ImGui::IsMouseDragging(ImGuiMouseButton_Right)) {
+            s.networkPanX+=io.MouseDelta.x/std::max(1.0f,z.x);
+            s.networkPanY+=io.MouseDelta.y/std::max(1.0f,z.y);
+        }
+    }
     d->AddRectFilled(o,{o.x+z.x,o.y+z.y},IM_COL32(12,12,13,255),4);
-    for(float x=0;x<z.x;x+=22) d->AddLine({o.x+x,o.y},{o.x+x,o.y+z.y},IM_COL32(45,45,45,38));
-    for(float y=0;y<z.y;y+=22) d->AddLine({o.x,o.y+y},{o.x+z.x,o.y+y},IM_COL32(45,45,45,38));
-    struct Node { float x,y,r; int type; };
+    for(float gx=0;gx<z.x;gx+=22) d->AddLine({o.x+gx,o.y},{o.x+gx,o.y+z.y},IM_COL32(70,70,70,34));
+    for(float gy=0;gy<z.y;gy+=22) d->AddLine({o.x,o.y+gy},{o.x+z.x,o.y+gy},IM_COL32(70,70,70,34));
+    struct Node { float x,y,phase,speed; int type; };
     static std::array<Node,209> nodes{};
     static std::array<std::array<int,2>,627> edges{};
     static bool initialized=false;
     if(!initialized) {
-        std::mt19937 rng(0x4E455855u); std::uniform_real_distribution<float> j(-.055f,.055f);
+        std::mt19937 rng(0x4E455855u); std::uniform_real_distribution<float> j(-.055f,.055f), ph(0.0f,6.28318f), sp(.35f,1.2f);
         for(int i=0;i<209;++i) {
             float ang=float(i)*2.39996323f, rad=std::sqrt(float(i)/209.0f);
-            nodes[i]={.5f+std::cos(ang)*rad*.43f+j(rng),.5f+std::sin(ang)*rad*.42f+j(rng),1.8f,0};
+            nodes[i]={.5f+std::cos(ang)*rad*.43f+j(rng),.5f+std::sin(ang)*rad*.42f+j(rng),ph(rng),sp(rng),(i%31==0)?1:((i%47==0)?2:0)};
         }
-        for(int i=0;i<209;++i) for(int k=1;k<=3;++k) edges[(i*3+k-1)]={i,(i+k*17+13)%209};
-        for(int i=0;i<209;++i) nodes[i].type=(i%31==0)?1:((i%47==0)?2:0);
+        for(int i=0;i<209;++i) for(int k=1;k<=3;++k) edges[i*3+k-1]={i,(i+k*17+13)%209};
         initialized=true;
     }
-    // Stable deterministic graph, with a small animated pulse on edges.
+    const float t=float(ImGui::GetTime());
+    auto pos=[&](int i) {
+        const Node& n=nodes[static_cast<std::size_t>(i)];
+        float x=n.x+std::sin(t*n.speed+n.phase)*.012f;
+        float y=n.y+std::cos(t*n.speed*.83f+n.phase*1.31f)*.014f;
+        return ImVec2{o.x+z.x*(.5f+(x-.5f)*s.networkZoom+s.networkPanX),
+                      o.y+z.y*(.5f+(y-.5f)*s.networkZoom+s.networkPanY)};
+    };
     for(std::size_t i=0;i<edges.size();++i) {
-        auto e=edges[i]; const Node& n1=nodes[e[0]],&n2=nodes[e[1]];
-        float x1=o.x+n1.x*z.x,y1=o.y+n1.y*z.y,x2=o.x+n2.x*z.x,y2=o.y+n2.y*z.y;
-        int alpha=std::clamp(int(38+18*std::sin(float(ImGui::GetTime())*1.1f+float(i)*.17f)),15,65);
-        d->AddLine({x1,y1},{x2,y2},IM_COL32(205,205,205,alpha),.7f);
+        ImVec2 p1=pos(edges[i][0]),p2=pos(edges[i][1]);
+        int alpha=std::clamp(int(28+22*(.5f+.5f*std::sin(t*1.2f+float(i)*.17f))),20,52);
+        d->AddLine(p1,p2,IM_COL32(190,195,202,alpha),.75f);
+        if(i%13==0) {
+            float pulse=std::fmod(t*.22f+float(i)*.071f,1.0f);
+            ImVec2 pp{p1.x+(p2.x-p1.x)*pulse,p1.y+(p2.y-p1.y)*pulse};
+            d->AddCircleFilled(pp,1.8f,IM_COL32(255,218,150,185));
+        }
     }
     const char* hubNames[]={"TCP","Catalyst 9000","ASA 5500","UDP","SIX Series","ICMP","Command Injection","Login Attempt","Data Exfiltration"};
     const ImVec2 hubPos[]={{.50f,.08f},{.17f,.35f},{.82f,.33f},{.08f,.83f},{.51f,.82f},{.90f,.82f},{.50f,.35f},{.40f,.65f},{.63f,.66f}};
     const ImU32 hubColors[]={IM_COL32(255,139,0,255),IM_COL32(43,170,53,255),IM_COL32(43,170,53,255),IM_COL32(255,126,0,255),IM_COL32(43,170,53,255),IM_COL32(255,126,0,255),IM_COL32(222,39,43,255),IM_COL32(222,39,43,255),IM_COL32(222,39,43,255)};
-    // Protocol/event hubs connect to every third source node.
+    auto hubScreen=[&](int h) {
+        return ImVec2{o.x+z.x*(.5f+(hubPos[h].x-.5f)*s.networkZoom+s.networkPanX),
+                      o.y+z.y*(.5f+(hubPos[h].y-.5f)*s.networkZoom+s.networkPanY)};
+    };
     for(int h=0;h<9;++h) {
-        ImVec2 hp{o.x+hubPos[h].x*z.x,o.y+hubPos[h].y*z.y};
-        for(int i=h*7%209;i<209;i+=3) {
-            const Node& n=nodes[i]; ImVec2 np{o.x+n.x*z.x,o.y+n.y*z.y};
-            d->AddLine(hp,np,IM_COL32(215,215,215,66),.8f);
-        }
+        ImVec2 hp=hubScreen(h);
+        for(int i=h*7%209;i<209;i+=3) d->AddLine(hp,pos(i),IM_COL32(215,215,215,45),.8f);
     }
     for(int i=0;i<209;++i) {
-        ImVec2 p{o.x+nodes[i].x*z.x,o.y+nodes[i].y*z.y};
-        d->AddCircleFilled(p,2.8f,IM_COL32(30,133,192,245));
-        if(i%7==0) { char label[32]; std::snprintf(label,sizeof(label),"%03d.%03d.%03d.%03d",(i*17+11)%255,(i*29+43)%255,(i*13+7)%255,(i*31+19)%255); d->AddText({p.x+3,p.y-5},IM_COL32(220,225,230,200),label); }
+        ImVec2 p=pos(i);
+        if(p.x<o.x-10||p.x>o.x+z.x+10||p.y<o.y-10||p.y>o.y+z.y+10) continue;
+        float pulse=.75f+.25f*std::sin(t*2.0f+nodes[i].phase);
+        d->AddCircleFilled(p,5.8f*pulse,IM_COL32(24,132,204,28));
+        d->AddCircleFilled(p,3.0f*pulse,IM_COL32(40,155,224,235));
+        d->AddCircleFilled(p,1.2f,IM_COL32(171,225,255,245));
+        if(s.networkLabels && i%7==0 && s.networkZoom>.65f) {
+            char label[32]; std::snprintf(label,sizeof(label),"%03d.%03d.%03d.%03d",(i*17+11)%255,(i*29+43)%255,(i*13+7)%255,(i*31+19)%255);
+            d->AddText({p.x+4,p.y-6},IM_COL32(220,225,230,190),label);
+        }
     }
     for(int h=0;h<9;++h) {
-        ImVec2 p{o.x+hubPos[h].x*z.x,o.y+hubPos[h].y*z.y};
-        float r=(h==0||h==6||h==7||h==8)?22.0f:19.0f;
-        d->AddCircleFilled(p,r+8,IM_COL32((h==0||h==3||h==5)?255:hubColors[h]&255,150,15,20));
-        d->AddCircleFilled(p,r,hubColors[h]);
+        ImVec2 p=hubScreen(h); float pulse=1.0f+.08f*std::sin(t*2.2f+h);
+        float r=((h==0||h>=6)?22.0f:19.0f)*std::clamp(s.networkZoom,.7f,1.6f)*pulse;
+        ImU32 col=hubColors[h];
+        int cr=(h==0||h==3||h==5)?255:((h==1||h==2||h==4)?43:222);
+        int cg=(h==1||h==2||h==4)?170:((h>=6)?39:126);
+        int cb=(h==1||h==2||h==4)?53:((h>=6)?43:0);
+        d->AddCircleFilled(p,r+12,IM_COL32(cr,cg,cb,22));
+        d->AddCircleFilled(p,r+5,IM_COL32(cr,cg,cb,35));
+        d->AddCircleFilled(p,r,col);
         ImVec2 ts=ImGui::CalcTextSize(hubNames[h]);
         d->AddText({p.x-ts.x*.5f,p.y-ts.y*.5f},IM_COL32(255,255,255,255),hubNames[h]);
     }
     d->AddText({o.x+12,o.y+10},IM_COL32(100,175,220,230),"209 NODES   /   627 CONNECTIONS");
-    d->AddText({o.x+12,o.y+z.y-21},IM_COL32(130,130,130,220),"Drag nodes: preview only   |   Synthetic network data");
+    d->AddText({o.x+12,o.y+z.y-21},IM_COL32(130,130,130,220),"Pan: drag   Zoom: wheel   |   Moving nodes / synthetic graph");
     d->AddRect(o,{o.x+z.x,o.y+z.y},IM_COL32(46,46,46,220),4);
 }
 void drawPerformance(State& s) {
@@ -295,14 +363,19 @@ void drawInspector(State& s) {
         if(ImGui::Button("Apply particle count",ImVec2(-1,0))) resetParticles(s);
         ImGui::Separator(); sectionLabel("VISUALIZATION"); ImGui::Checkbox("Grid overlay",&s.grid); ImGui::Checkbox("Motion trails (preview)",&s.trails);
         ImGui::Separator(); sectionLabel("INTERACTION"); ImGui::TextWrapped("Hold the left mouse button over the viewport to attract particles toward the cursor.");
-    } else if(s.active==Module::Renderer) {
-        sectionLabel("SCENE"); ImGui::Checkbox("Perspective grid",&s.grid); ImGui::Checkbox("Auto rotation",&s.autoRotate);
-        ImGui::SliderFloat("Rotation",&s.rotation,0,6.28318f,"%.2f rad");
-        ImGui::Separator(); sectionLabel("CAMERA"); ImGui::Text("Projection"); ImGui::SameLine(); ImGui::TextColored(C_TEAL,"Perspective");
-        ImGui::Text("Geometry"); ImGui::SameLine(); ImGui::TextColored(C_TEAL,"Wireframe cube");
-        ImGui::Separator(); sectionLabel("RENDER PIPELINE"); ImGui::TextDisabled("MVP viewport preview"); ImGui::TextDisabled("Shader/material editor: planned");
+     } else if(s.active==Module::Renderer) {
+        sectionLabel("3D SCENE"); ImGui::Checkbox("Perspective grid",&s.grid); ImGui::Checkbox("Auto orbit",&s.autoRotate);
+        ImGui::Checkbox("Star glow",&s.rendererGlow); ImGui::Checkbox("Stellar field",&s.rendererStars);
+        ImGui::SliderInt("Star count",&s.particleCount,100,20000);
+        ImGui::SliderFloat("Camera zoom",&s.cameraZoom,.35f,3.5f,"%.2fx");
+        ImGui::Separator(); sectionLabel("CAMERA"); ImGui::TextWrapped("Drag inside the viewport to orbit the 3D field. Use the mouse wheel to zoom.");
+        if(ImGui::Button("Reset camera",ImVec2(-1,0))) { s.cameraZoom=1.0f; s.cameraYaw=0.0f; s.cameraPitch=.12f; }
+        ImGui::Separator(); sectionLabel("RENDER PIPELINE"); ImGui::TextColored(C_AMBER,"3D perspective projection"); ImGui::TextDisabled("Procedural CPU particle preview");
     } else if(s.active==Module::Network) {
-        sectionLabel("DATA SOURCE"); ImGui::Checkbox("Generate demo traffic",&s.demoTraffic);
+        sectionLabel("GRAPH NAVIGATION"); ImGui::SliderFloat("Zoom",&s.networkZoom,.28f,4.5f,"%.2fx");
+        ImGui::Checkbox("Node movement",&s.networkPhysics); ImGui::Checkbox("IP labels",&s.networkLabels);
+        if(ImGui::Button("Reset view",ImVec2(-1,0))) { s.networkZoom=1.0f; s.networkPanX=0.0f; s.networkPanY=0.0f; }
+        ImGui::Separator(); sectionLabel("DATA SOURCE"); ImGui::Checkbox("Generate demo traffic",&s.demoTraffic);
         ImGui::Separator(); sectionLabel("CAPTURE STATUS");
         ImGui::TextColored(C_AMBER,"DEMO MODE"); ImGui::TextWrapped("No live interfaces are opened. No packets are captured from the device.");
         ImGui::Separator(); sectionLabel("SESSION TOTALS");
