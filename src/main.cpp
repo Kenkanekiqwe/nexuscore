@@ -108,7 +108,7 @@ void moduleButton(const char* glyph, const char* label, const char* hint, Module
 void drawParticles(State& s) {
     ImGui::TextColored(C_MUTED,"PARTICLE FIELD  /  2D DYNAMICS");
     ImGui::SameLine();
-    ImGui::TextColored(C_TEAL,"● LIVE SIMULATION");
+    ImGui::TextColored(C_TEAL,"LIVE SIMULATION");
     ImGui::Separator();
     ImVec2 avail=ImGui::GetContentRegionAvail();
     ImVec2 canvas(std::max(1.0f,avail.x),std::max(180.0f,avail.y));
@@ -144,7 +144,7 @@ void drawParticles(State& s) {
 }
 void drawRenderer(State& s) {
     ImGui::TextColored(C_MUTED,"VOID ENGINE  /  SCENE PREVIEW");
-    ImGui::SameLine(); ImGui::TextColored(C_TEAL,"● PROCEDURAL");
+    ImGui::SameLine(); ImGui::TextColored(C_TEAL,"PROCEDURAL");
     ImGui::Separator();
     ImVec2 a=ImGui::GetContentRegionAvail(), canvas(std::max(1.0f,a.x),std::max(180.0f,a.y));
     ImGui::InvisibleButton("renderer-canvas",canvas);
@@ -171,7 +171,7 @@ void drawRenderer(State& s) {
     for(auto edge:e) d->AddLine(q[static_cast<std::size_t>(edge[0])],q[static_cast<std::size_t>(edge[1])],IM_COL32(73,222,231,235),1.8f);
     d->AddCircle({cx,cy},std::min(z.x,z.y)*.23f,IM_COL32(52,135,161,55),64,1);
     d->AddText({o.x+15,o.y+13},IM_COL32(145,169,190,220),"VIEWPORT 01  /  WIREFRAME");
-    d->AddText({o.x+15,o.y+z.y-25},IM_COL32(110,140,160,210),"OPENGL CONTEXT ACTIVE  •  MVP GEOMETRY");
+    d->AddText({o.x+15,o.y+z.y-25},IM_COL32(110,140,160,210),"OPENGL CONTEXT ACTIVE  /  MVP GEOMETRY");
     d->AddRect(o,{o.x+z.x,o.y+z.y},IM_COL32(40,61,80,220),7);
 }
 void synthesize(State& s) {
@@ -197,7 +197,7 @@ double memoryMb() {
 void drawNetwork(State& s) {
     synthesize(s);
     ImGui::TextColored(C_MUTED,"NETSCOPE  /  TRAFFIC MONITOR");
-    ImGui::SameLine(); ImGui::TextColored(C_AMBER,"● SIMULATED DATA");
+    ImGui::SameLine(); ImGui::TextColored(C_AMBER,"SIMULATED DATA");
     ImGui::Separator();
     ImGui::TextWrapped("Demo traffic is synthetic. Live packet capture is not implemented in this build.");
     if(ImGui::BeginTable("packets",5,ImGuiTableFlags_BordersInnerH|ImGuiTableFlags_RowBg|ImGuiTableFlags_ScrollY|ImGuiTableFlags_Resizable|ImGuiTableFlags_SizingStretchProp,ImVec2(0,0))) {
@@ -287,19 +287,19 @@ void drawHeader(State& s) {
     ImGui::TextColored(C_MUTED,"EXPERIMENTAL SYSTEMS LAB");
     ImGui::EndGroup();
     ImGui::SameLine(250);
-    if(ImGui::Button(s.paused?"▶  RESUME":"Ⅱ  PAUSE",ImVec2(105,35))) s.paused=!s.paused;
-    ImGui::SameLine(); if(ImGui::Button("↺  RESET",ImVec2(90,35))) resetParticles(s);
-    ImGui::SameLine(0,22); ImGui::TextColored(C_GREEN,"●"); ImGui::SameLine(0,5); ImGui::TextColored(C_MUTED,"LOCAL SESSION");
+    if(ImGui::Button(s.paused?"RESUME":"PAUSE",ImVec2(105,35))) s.paused=!s.paused;
+    ImGui::SameLine(); if(ImGui::Button("RESET",ImVec2(90,35))) resetParticles(s);
+    ImGui::SameLine(0,22); ImGui::TextColored(C_GREEN,"OK"); ImGui::SameLine(0,5); ImGui::TextColored(C_MUTED,"LOCAL SESSION");
     ImGui::SameLine(ImGui::GetWindowWidth()-120); ImGui::TextColored(C_MUTED,"BUILD"); ImGui::SameLine(0,7); ImGui::TextColored(C_TEAL,"0.2.0");
     ImGui::EndChild();
 }
 void drawSidebar(State& s) {
     ImGui::BeginChild("Sidebar",ImVec2(210,0),ImGuiChildFlags_Borders);
     ImGui::SetCursorPosY(ImGui::GetCursorPosY()+7); sectionLabel("WORKSPACE"); ImGui::Spacing();
-    moduleButton("◉","Particle Lab","Dynamics",Module::Particles,s);
-    moduleButton("◇","Void Renderer","3D viewport",Module::Renderer,s);
-    moduleButton("≋","NetScope","Traffic lab",Module::Network,s);
-    moduleButton("▥","Performance","Runtime stats",Module::Performance,s);
+    moduleButton("P","Particle Lab","Dynamics",Module::Particles,s);
+    moduleButton("V","Void Renderer","3D viewport",Module::Renderer,s);
+    moduleButton("N","NetScope","Traffic lab",Module::Network,s);
+    moduleButton("F","Performance","Runtime stats",Module::Performance,s);
     ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
     sectionLabel("SYSTEM"); ImGui::Spacing();
     ImGui::BulletText("Graphics"); ImGui::SameLine(); ImGui::TextColored(C_GREEN,"Ready");
@@ -318,7 +318,7 @@ void drawTelemetry(State& s) {
     ImGui::SameLine(435); metric("PARTICLES",std::to_string(s.particles.size()).c_str(),"",C_AMBER);
     ImGui::SameLine(570); metric("PACKETS",std::to_string(s.packetTotal).c_str(),"",C_BLUE);
     ImGui::SameLine(710); sectionLabel("EVENT LOG"); ImGui::SameLine(); ImGui::TextColored(C_MUTED,s.paused?"Simulation paused":"Runtime loop active");
-    ImGui::SameLine(ImGui::GetWindowWidth()-140); ImGui::TextColored(C_GREEN,"● ALL SYSTEMS OK");
+    ImGui::SameLine(ImGui::GetWindowWidth()-140); ImGui::TextColored(C_GREEN,"ALL SYSTEMS OK");
     ImGui::EndChild();
 }
 }
