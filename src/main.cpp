@@ -106,41 +106,48 @@ void moduleButton(const char* glyph, const char* label, const char* hint, Module
     ImGui::PopStyleColor(2);
 }
 void drawParticles(State& s) {
-    ImGui::TextColored(C_MUTED,"PARTICLE FIELD  /  2D DYNAMICS");
-    ImGui::SameLine();
-    ImGui::TextColored(C_TEAL,"LIVE SIMULATION");
+    ImGui::TextColored(C_MUTED,"PARTICLE FIELD  /  PROCEDURAL FLOW");
+    ImGui::SameLine(); ImGui::TextColored(C_AMBER,"GOLDEN NEBULA");
     ImGui::Separator();
-    ImVec2 avail=ImGui::GetContentRegionAvail();
-    ImVec2 canvas(std::max(1.0f,avail.x),std::max(180.0f,avail.y));
+    ImVec2 a=ImGui::GetContentRegionAvail(), canvas(std::max(1.0f,a.x),std::max(180.0f,a.y));
     ImGui::InvisibleButton("particle-canvas",canvas,ImGuiButtonFlags_MouseButtonLeft);
-    ImVec2 o=ImGui::GetItemRectMin(), z=ImGui::GetItemRectSize(), mouse=ImGui::GetIO().MousePos;
-    auto* d=ImGui::GetWindowDrawList();
-    d->AddRectFilled(o,{o.x+z.x,o.y+z.y},IM_COL32(7,12,20,255),7);
-    if(s.grid) {
-        for(int i=1;i<12;++i) { float x=o.x+z.x*i/12; d->AddLine({x,o.y},{x,o.y+z.y},IM_COL32(38,56,73,90)); }
-        for(int i=1;i<9;++i) { float y=o.y+z.y*i/9; d->AddLine({o.x,y},{o.x+z.x,y},IM_COL32(38,56,73,90)); }
+    ImVec2 o=ImGui::GetItemRectMin(), z=ImGui::GetItemRectSize(); auto*d=ImGui::GetWindowDrawList();
+    d->AddRectFilled(o,{o.x+z.x,o.y+z.y},IM_COL32(2,3,5,255),5);
+    const float t=float(ImGui::GetTime()), w=z.x, h=z.y;
+    // Three overlapping density fields create the luminous, diagonal nebula shown in the reference.
+    for(int i=0;i<std::min(s.particleCount,20000);++i) {
+        const float fi=float(i), seed=fi*12.9898f+78.233f;
+        float u=std::fmod(std::sin(seed)*43758.5453f+1.0f,1.0f); if(u<0)u+=1;
+        float v=std::fmod(std::sin(seed*1.371f)*24634.6345f+1.0f,1.0f); if(v<0)v+=1;
+        float along=u;
+        float centerX=w*(.12f+.78f*along)+std::sin(along*11.0f+t*.12f)*w*.055f;
+        float centerY=h*(.12f+.78f*along)+std::sin(along*15.0f+t*.17f)*h*.065f;
+        float spread=(.018f+.19f*std::exp(-std::pow((along-.43f)*4.0f,2)))*std::min(w,h);
+        float side=(v-.5f)*spread*2.8f;
+        float x=centerX+side*.78f+(v-.5f)*w*.09f;
+        float y=centerY-side*.42f+(v-.5f)*h*.07f;
+        // A second broad spiral stream and a dense central cloud break the silhouette into filaments.
+        x+=std::sin(v*31.0f+along*18.0f+t*.18f)*spread*.24f;
+        y+=std::cos(v*23.0f-along*12.0f+t*.15f)*spread*.20f;
+        if(x<o.x+2||x>o.x+w-2||y<o.y+2||y>o.y+h-2) continue;
+        float core=std::exp(-std::pow((along-.44f)*5.2f,2))*std::exp(-std::pow((v-.52f)*3.4f,2));
+        int alpha=std::clamp(int(45+core*190+(u>.93f?70:0)),20,255);
+        float r=(u>.987f?1.7f:0.45f)+core*1.65f;
+        ImU32 color=IM_COL32(255,int(184+55*core),int(100+100*core),alpha);
+        if(core>.48f && (i%4)==0) d->AddCircleFilled({x,y},r*3.2f,IM_COL32(255,186,93,22));
+        d->AddCircleFilled({x,y},r,color);
     }
-    const float dt=std::min(ImGui::GetIO().DeltaTime,0.033f), aspect=z.x/std::max(1.0f,z.y);
-    const float mx=(mouse.x-o.x)/z.x*2-1, my=1-(mouse.y-o.y)/z.y*2;
-    if(!s.paused) for(auto& p:s.particles) {
-        p.vy-=s.gravity*dt*0.012f;
-        if(ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
-            float dx=mx-p.x,dy=my-p.y,den=dx*dx+dy*dy+0.015f;
-            float f=s.force*dt*0.00012f/den; p.vx+=dx*f; p.vy+=dy*f;
-        }
-        p.x+=p.vx*dt*0.045f; p.y+=p.vy*dt*0.045f;
-        if(p.x < -aspect || p.x > aspect) { p.vx*=-0.92f; p.x=std::clamp(p.x,-aspect,aspect); }
-        if(p.y < -1 || p.y > 1) { p.vy*=-0.92f; p.y=std::clamp(p.y,-1.0f,1.0f); }
-        p.vx*=0.9995f; p.vy*=0.9995f;
+    // A few bright particle clusters give the field scale and depth.
+    for(int k=0;k<9;++k) {
+        float px=o.x+w*(.12f+std::fmod(k*.173f+.09f, .78f));
+        float py=o.y+h*(.18f+std::fmod(k*.317f+.03f, .68f));
+        float pulse=1.0f+.2f*std::sin(t*1.4f+k);
+        d->AddCircle({px,py},3.0f*pulse,IM_COL32(255,221,155,100),12,1.0f);
+        d->AddCircleFilled({px,py},1.2f*pulse,IM_COL32(255,231,179,230));
     }
-    for(const auto& p:s.particles) {
-        float x=o.x+z.x*(0.5f+p.x/(2*aspect)), y=o.y+z.y*(0.5f-p.y*0.5f);
-        float speed=std::min(1.0f,std::sqrt(p.vx*p.vx+p.vy*p.vy)/50);
-        d->AddCircleFilled({x,y},s.particleSize+speed,IM_COL32(54,190+int(45*speed),218+int(35*speed),225));
-    }
-    d->AddText({o.x+15,o.y+13},IM_COL32(145,169,190,220),"PARTICLE FIELD  //  LEFT CLICK TO ATTRACT");
-    d->AddText({o.x+15,o.y+z.y-25},IM_COL32(110,140,160,210),s.paused?"SIMULATION PAUSED":"INTEGRATION: SEMI-IMPLICIT EULER");
-    d->AddRect(o,{o.x+z.x,o.y+z.y},IM_COL32(40,61,80,220),7);
+    d->AddText({o.x+16,o.y+14},IM_COL32(180,153,112,210),"VOID FIELD  /  PROCEDURAL PARTICLE DENSITY");
+    d->AddText({o.x+16,o.y+h-25},IM_COL32(125,111,91,190),s.paused?"FIELD FROZEN":"LIVE FIELD  -  DEPTH / FILAMENT / CLUSTER");
+    d->AddRect(o,{o.x+w,o.y+h},IM_COL32(54,43,29,170),5);
 }
 void drawRenderer(State& s) {
     ImGui::TextColored(C_MUTED,"VOID ENGINE  /  SCENE PREVIEW");
@@ -195,27 +202,63 @@ double memoryMb() {
     return -1;
 }
 void drawNetwork(State& s) {
-    synthesize(s);
-    ImGui::TextColored(C_MUTED,"NETSCOPE  /  TRAFFIC MONITOR");
-    ImGui::SameLine(); ImGui::TextColored(C_AMBER,"SIMULATED DATA");
+    ImGui::TextColored(C_MUTED,"NETWORK VISUALIZATION");
+    ImGui::SameLine(); ImGui::TextColored(C_AMBER,"209 NODES / SYNTHETIC GRAPH");
     ImGui::Separator();
-    ImGui::TextWrapped("Demo traffic is synthetic. Live packet capture is not implemented in this build.");
-    if(ImGui::BeginTable("packets",5,ImGuiTableFlags_BordersInnerH|ImGuiTableFlags_RowBg|ImGuiTableFlags_ScrollY|ImGuiTableFlags_Resizable|ImGuiTableFlags_SizingStretchProp,ImVec2(0,0))) {
-        ImGui::TableSetupColumn("TIMESTAMP",ImGuiTableColumnFlags_WidthFixed,100);
-        ImGui::TableSetupColumn("SOURCE"); ImGui::TableSetupColumn("DESTINATION");
-        ImGui::TableSetupColumn("PROTO",ImGuiTableColumnFlags_WidthFixed,72);
-        ImGui::TableSetupColumn("BYTES",ImGuiTableColumnFlags_WidthFixed,70);
-        ImGui::TableHeadersRow();
-        for(auto it=s.packets.rbegin();it!=s.packets.rend();++it) {
-            ImGui::TableNextRow(); ImGui::TableNextColumn(); ImGui::Text("%.2f",it->time);
-            ImGui::TableNextColumn(); ImGui::TextUnformatted(it->src.c_str());
-            ImGui::TableNextColumn(); ImGui::TextUnformatted(it->dst.c_str());
-            ImGui::TableNextColumn();
-            ImGui::TextColored(std::string(it->proto)=="DNS"?C_AMBER:(std::string(it->proto)=="TLS"?C_TEAL:C_BLUE),"%s",it->proto.c_str());
-            ImGui::TableNextColumn(); ImGui::Text("%d",it->bytes);
+    ImVec2 a=ImGui::GetContentRegionAvail(), canvas(std::max(1.0f,a.x),std::max(180.0f,a.y));
+    ImGui::InvisibleButton("network-canvas",canvas,ImGuiButtonFlags_MouseButtonLeft);
+    ImVec2 o=ImGui::GetItemRectMin(), z=ImGui::GetItemRectSize(); auto*d=ImGui::GetWindowDrawList();
+    d->AddRectFilled(o,{o.x+z.x,o.y+z.y},IM_COL32(12,12,13,255),4);
+    for(float x=0;x<z.x;x+=22) d->AddLine({o.x+x,o.y},{o.x+x,o.y+z.y},IM_COL32(45,45,45,38));
+    for(float y=0;y<z.y;y+=22) d->AddLine({o.x,o.y+y},{o.x+z.x,o.y+y},IM_COL32(45,45,45,38));
+    struct Node { float x,y,r; int type; };
+    static std::array<Node,209> nodes{};
+    static std::array<std::array<int,2>,627> edges{};
+    static bool initialized=false;
+    if(!initialized) {
+        std::mt19937 rng(0x4E455855u); std::uniform_real_distribution<float> j(-.055f,.055f);
+        for(int i=0;i<209;++i) {
+            float ang=float(i)*2.39996323f, rad=std::sqrt(float(i)/209.0f);
+            nodes[i]={.5f+std::cos(ang)*rad*.43f+j(rng),.5f+std::sin(ang)*rad*.42f+j(rng),1.8f,0};
         }
-        ImGui::EndTable();
+        for(int i=0;i<209;++i) for(int k=1;k<=3;++k) edges[(i*3+k-1)]={i,(i+k*17+13)%209};
+        for(int i=0;i<209;++i) nodes[i].type=(i%31==0)?1:((i%47==0)?2:0);
+        initialized=true;
     }
+    // Stable deterministic graph, with a small animated pulse on edges.
+    for(std::size_t i=0;i<edges.size();++i) {
+        auto e=edges[i]; const Node& n1=nodes[e[0]],&n2=nodes[e[1]];
+        float x1=o.x+n1.x*z.x,y1=o.y+n1.y*z.y,x2=o.x+n2.x*z.x,y2=o.y+n2.y*z.y;
+        int alpha=std::clamp(int(38+18*std::sin(float(ImGui::GetTime())*1.1f+float(i)*.17f)),15,65);
+        d->AddLine({x1,y1},{x2,y2},IM_COL32(205,205,205,alpha),.7f);
+    }
+    const char* hubNames[]={"TCP","Catalyst 9000","ASA 5500","UDP","SIX Series","ICMP","Command Injection","Login Attempt","Data Exfiltration"};
+    const ImVec2 hubPos[]={{.50f,.08f},{.17f,.35f},{.82f,.33f},{.08f,.83f},{.51f,.82f},{.90f,.82f},{.50f,.35f},{.40f,.65f},{.63f,.66f}};
+    const ImU32 hubColors[]={IM_COL32(255,139,0,255),IM_COL32(43,170,53,255),IM_COL32(43,170,53,255),IM_COL32(255,126,0,255),IM_COL32(43,170,53,255),IM_COL32(255,126,0,255),IM_COL32(222,39,43,255),IM_COL32(222,39,43,255),IM_COL32(222,39,43,255)};
+    // Protocol/event hubs connect to every third source node.
+    for(int h=0;h<9;++h) {
+        ImVec2 hp{o.x+hubPos[h].x*z.x,o.y+hubPos[h].y*z.y};
+        for(int i=h*7%209;i<209;i+=3) {
+            const Node& n=nodes[i]; ImVec2 np{o.x+n.x*z.x,o.y+n.y*z.y};
+            d->AddLine(hp,np,IM_COL32(215,215,215,66),.8f);
+        }
+    }
+    for(int i=0;i<209;++i) {
+        ImVec2 p{o.x+nodes[i].x*z.x,o.y+nodes[i].y*z.y};
+        d->AddCircleFilled(p,2.8f,IM_COL32(30,133,192,245));
+        if(i%7==0) d->AddText({p.x+3,p.y-5},IM_COL32(220,225,230,200),"%03d.%03d.%03d.%03d",(i*17+11)%255,(i*29+43)%255,(i*13+7)%255,(i*31+19)%255);
+    }
+    for(int h=0;h<9;++h) {
+        ImVec2 p{o.x+hubPos[h].x*z.x,o.y+hubPos[h].y*z.y};
+        float r=(h==0||h==6||h==7||h==8)?22.0f:19.0f;
+        d->AddCircleFilled(p,r+8,IM_COL32((h==0||h==3||h==5)?255:hubColors[h]&255,150,15,20));
+        d->AddCircleFilled(p,r,hubColors[h]);
+        ImVec2 ts=ImGui::CalcTextSize(hubNames[h]);
+        d->AddText({p.x-ts.x*.5f,p.y-ts.y*.5f},IM_COL32(255,255,255,255),hubNames[h]);
+    }
+    d->AddText({o.x+12,o.y+10},IM_COL32(100,175,220,230),"209 NODES   /   627 CONNECTIONS");
+    d->AddText({o.x+12,o.y+z.y-21},IM_COL32(130,130,130,220),"Drag nodes: preview only   |   Synthetic network data");
+    d->AddRect(o,{o.x+z.x,o.y+z.y},IM_COL32(46,46,46,220),4);
 }
 void drawPerformance(State& s) {
     const double fps=s.frameMs>0?1000.0/s.frameMs:0, mem=memoryMb();
