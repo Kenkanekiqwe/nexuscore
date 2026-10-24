@@ -33,16 +33,16 @@ struct State {
     std::array<float, 90> frameHistory{};
     std::size_t historyIndex = 0;
 };
-constexpr ImVec4 C_BG{0.027f,0.035f,0.050f,1};
-constexpr ImVec4 C_PANEL{0.043f,0.055f,0.075f,1};
-constexpr ImVec4 C_PANEL2{0.060f,0.076f,0.099f,1};
-constexpr ImVec4 C_LINE{0.12f,0.16f,0.21f,1};
-constexpr ImVec4 C_TEXT{0.87f,0.91f,0.95f,1};
-constexpr ImVec4 C_MUTED{0.40f,0.48f,0.57f,1};
-constexpr ImVec4 C_TEAL{0.24f,0.84f,0.83f,1};
-constexpr ImVec4 C_BLUE{0.32f,0.62f,0.98f,1};
-constexpr ImVec4 C_GREEN{0.35f,0.83f,0.61f,1};
-constexpr ImVec4 C_AMBER{1.0f,0.70f,0.31f,1};
+const ImVec4 C_BG{0.027f,0.035f,0.050f,1};
+const ImVec4 C_PANEL{0.043f,0.055f,0.075f,1};
+const ImVec4 C_PANEL2{0.060f,0.076f,0.099f,1};
+const ImVec4 C_LINE{0.12f,0.16f,0.21f,1};
+const ImVec4 C_TEXT{0.87f,0.91f,0.95f,1};
+const ImVec4 C_MUTED{0.40f,0.48f,0.57f,1};
+const ImVec4 C_TEAL{0.24f,0.84f,0.83f,1};
+const ImVec4 C_BLUE{0.32f,0.62f,0.98f,1};
+const ImVec4 C_GREEN{0.35f,0.83f,0.61f,1};
+const ImVec4 C_AMBER{1.0f,0.70f,0.31f,1};
 
 void resetParticles(State& s) {
     s.particles.clear();
